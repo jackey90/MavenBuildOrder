@@ -12,22 +12,15 @@ import org.dom4j.io.SAXReader;
 public class PomAnalyser {
 	private Document doc;
 	private Element root;
+	private String path;
 	private String groupId;
 	private String artifactId;
 	private List<String> modules;
-
-	protected PomAnalyser(Document doc) {
-		this.doc = doc;
-		init();
-	}
+	private List<PomAnalyser> dependencies;
 
 	protected PomAnalyser(String path) {
+		this.path = path;
 		doc = getDocument(path);
-		init();
-	}
-
-	public PomAnalyser(File file) {
-		doc = getDocument(file);
 		init();
 	}
 
@@ -57,6 +50,29 @@ public class PomAnalyser {
 				}
 			}
 		}
+	}
+
+	public List<MavenModule> genDependencies() {
+		Element dependenciesEle = root.element("dependencies");
+		if (dependenciesEle != null) {
+			List<Element> list = dependenciesEle.elements("dependency");
+			if (list != null) {
+				List<MavenModule> resultList = new ArrayList<MavenModule>();
+				for (int i = 0; i < list.size(); i++) {
+					Element dependencyEle = list.get(i);
+					String groupId = dependencyEle.element("groupId").getText();
+					if (groupId.startsWith("com.ea")) {
+						String artifactId = dependencyEle.element("artifactId").getText();
+						MavenModule mockModule = new MavenModule(groupId,
+								artifactId);
+						resultList.add(mockModule);
+					}
+				}
+				return resultList;
+			}
+		}
+
+		return null;
 
 	}
 
@@ -103,4 +119,37 @@ public class PomAnalyser {
 		}
 		return null;
 	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result
+				+ ((artifactId == null) ? 0 : artifactId.hashCode());
+		result = prime * result + ((groupId == null) ? 0 : groupId.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PomAnalyser other = (PomAnalyser) obj;
+		if (artifactId == null) {
+			if (other.artifactId != null)
+				return false;
+		} else if (!artifactId.equals(other.artifactId))
+			return false;
+		if (groupId == null) {
+			if (other.groupId != null)
+				return false;
+		} else if (!groupId.equals(other.groupId))
+			return false;
+		return true;
+	}
+
 }
