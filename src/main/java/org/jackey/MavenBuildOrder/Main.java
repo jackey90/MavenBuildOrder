@@ -28,7 +28,7 @@ public class Main {
 			Model model = reader.read(new FileReader(pomPath + File.separator
 					+ "pom.parent" + File.separator + "pom.xml"));
 			Properties p = model.getProperties();
-			while (canOver(p)) {
+			while (!canOver(p)) {
 				for (Entry<Object, Object> entry : p.entrySet()) {
 					String key = (String) entry.getKey();
 					String value = (String) entry.getValue();
@@ -58,6 +58,12 @@ public class Main {
 				System.out
 						.println("*********************************************");
 				System.out.println(p.getProperty("com.ea.nucleus.version"));
+			}
+			System.out
+			.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+			for (Entry<Object, Object> entry : p.entrySet()) {
+				String key = (String) entry.getKey();
+				System.out.println(key + "  " + p.getProperty(key));
 			}
 
 		} catch (FileNotFoundException e) {
@@ -166,9 +172,11 @@ public class Main {
 		while (e.hasMoreElements()) {
 			String key = (String) e.nextElement();
 			String value = p.getProperty(key);
-			if (key.contains("ea.com")) {
+			if (key.startsWith("com.ea")) {
 				if (value.contains("$")) {
-					System.out.println(key);
+					System.out
+							.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+									+ key + "  " + value);
 					return false;
 				}
 			}
