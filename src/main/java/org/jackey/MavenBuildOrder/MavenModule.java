@@ -5,6 +5,7 @@ public class MavenModule {
 	private String artifactId;
 	private String path;
 	private String name;
+	private String version;
 	private boolean isBuilt = false;
 
 	public MavenModule() {
@@ -56,6 +57,14 @@ public class MavenModule {
 		this.isBuilt = isBuilt;
 	}
 
+	public String getVersion() {
+		return version;
+	}
+
+	public void setVersion(String version) {
+		this.version = version;
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -90,7 +99,7 @@ public class MavenModule {
 
 	@Override
 	public String toString() {
-		return groupId + "  " + artifactId;
+		return groupId + " " + artifactId;
 	}
 
 }

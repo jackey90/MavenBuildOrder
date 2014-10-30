@@ -3,6 +3,7 @@ package org.jackey.MavenBuildOrder;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -15,8 +16,9 @@ public class PomAnalyser {
 	private String path;
 	private String groupId;
 	private String artifactId;
+	private MavenModule thisModule;
 	private List<String> modules;
-	private List<PomAnalyser> dependencies;
+	private Map<String, String> properties;
 
 	protected PomAnalyser(String path) {
 		this.path = path;
@@ -24,26 +26,26 @@ public class PomAnalyser {
 		init();
 	}
 
-	private void genGroupId() {
-		groupId = root.element("groupId").getText();
-	}
-
-	private void genArtifactId() {
-		artifactId = root.element("artifactId").getText();
-	}
-
 	private void init() {
 		root = doc.getRootElement();
-		genGroupId();
-		genArtifactId();
 		genModules();
+	}
+	
+	private void genThisModule(){
+		thisModule = new MavenModule();
+		thisModule.setGroupId(root.element("groupId").getText());
+		thisModule.setArtifactId(root.element("artifactId").getText());
+	}
+	
+	private void genProperties(){
+		
 	}
 
 	private void genModules() {
 		Element modulesEle = root.element("modules");
-		if (modulesEle != null) {
+		if (notNull(modulesEle)) {
 			List<Element> list = modulesEle.elements("module");
-			if (list != null) {
+			if (notNull(list)) {
 				modules = new ArrayList<String>();
 				for (Element ele : list) {
 					modules.add(ele.getText());
@@ -52,28 +54,105 @@ public class PomAnalyser {
 		}
 	}
 
-	public List<MavenModule> genDependencies() {
-		Element dependenciesEle = root.element("dependencies");
-		if (dependenciesEle != null) {
-			List<Element> list = dependenciesEle.elements("dependency");
-			if (list != null) {
-				List<MavenModule> resultList = new ArrayList<MavenModule>();
-				for (int i = 0; i < list.size(); i++) {
-					Element dependencyEle = list.get(i);
-					String groupId = dependencyEle.element("groupId").getText();
-					if (groupId.startsWith("com.ea")) {
-						String artifactId = dependencyEle.element("artifactId").getText();
-						MavenModule mockModule = new MavenModule(groupId,
-								artifactId);
-						resultList.add(mockModule);
-					}
-				}
-				return resultList;
+	public MavenModule genMavenModule(Element element) {
+		if (notNull(element)) {
+			if (notNull(element.element("groupId"))
+					&& notNull(element.element("artifactId"))) {
+				String groupId = element.element("groupId").getText();
+				String artifactId = element.element("artifactId").getText();
+				MavenModule mockModule = new MavenModule(groupId, artifactId);
+				return mockModule;
 			}
 		}
 
 		return null;
+	}
 
+	public List<MavenModule> getMavenModules(List<Element> list) {
+		if (notNull(list)) {
+			List<MavenModule> resultList = new ArrayList<MavenModule>();
+			for (int i = 0; i < list.size(); i++) {
+				Element ele = list.get(i);
+				MavenModule mavenModule = genMavenModule(ele);
+				if (notNull(mavenModule)) {
+					resultList.add(mavenModule);
+				}
+			}
+			return resultList;
+		}
+		return null;
+	}
+
+	public List<MavenModule> genDependencies(Element element) {
+		if (notNull(element)) {
+			Element dependenciesEle = element.element("dependencies");
+			if (notNull(dependenciesEle)) {
+				List<Element> list = dependenciesEle.elements("dependency");
+				return getMavenModules(list);
+
+			}
+		}
+		return null;
+	}
+
+	public List<MavenModule> getRootDependencies() {
+		return genDependencies(root);
+	}
+
+	public List<MavenModule> getPlugins() {
+		if (notNull(root)) {
+			Element buildEle = root.element("build");
+			if (notNull(buildEle)) {
+				Element pluginsEle = buildEle.element("plugins");
+				if (notNull(pluginsEle)) {
+					List<Element> plugins = pluginsEle.elements("plugin");
+					return getMavenModules(plugins);
+				}
+			}
+		}
+
+		return null;
+	}
+
+	public List<MavenModule> getPluginDependencies() {
+		if (notNull(root)) {
+			Element buildEle = root.element("build");
+			if (notNull(buildEle)) {
+				Element pluginsEle = buildEle.element("plugins");
+				if (notNull(pluginsEle)) {
+					List<Element> plugins = pluginsEle.elements("plugin");
+					if (notNull(plugins)) {
+						List<MavenModule> resultList = new ArrayList<MavenModule>();
+						for (int i = 0; i < plugins.size(); i++) {
+							List<MavenModule> dependencies = genDependencies(plugins
+									.get(i));
+							if (notNull(dependencies)) {
+								resultList.addAll(dependencies);
+							}
+						}
+						if (resultList.size() > 0) {
+							return resultList;
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	public List<MavenModule> getBuildExtensions() {
+		if (notNull(root)) {
+			Element buildEle = root.element("build");
+			if (notNull(buildEle)) {
+				Element extensionsEle = buildEle.element("extensions");
+				if (notNull(extensionsEle)) {
+					List<Element> extensionList = extensionsEle
+							.elements("extension");
+					return getMavenModules(extensionList);
+				}
+			}
+		}
+		return null;
 	}
 
 	public Document getDoc() {
@@ -150,6 +229,10 @@ public class PomAnalyser {
 		} else if (!groupId.equals(other.groupId))
 			return false;
 		return true;
+	}
+
+	private boolean notNull(Object obj) {
+		return obj != null;
 	}
 
 }
