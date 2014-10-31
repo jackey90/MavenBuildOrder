@@ -17,63 +17,15 @@ import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 public class Main {
 	public static List<MavenModule> allModules = new ArrayList<MavenModule>();
 	public static List<MavenModule> orderModules = new ArrayList<MavenModule>();
+	private static Properties parentProperties;
 
 	public static void main(String[] args) {
 		if (args == null || args.length != 1 || args[0].length() <= 0) {
 			usage();
 		}
 		String pomPath = args[0];
-		MavenXpp3Reader reader = new MavenXpp3Reader();
-		try {
-			Model model = reader.read(new FileReader(pomPath + File.separator
-					+ "pom.parent" + File.separator + "pom.xml"));
-			Properties p = model.getProperties();
-			while (!canOver(p)) {
-				for (Entry<Object, Object> entry : p.entrySet()) {
-					String key = (String) entry.getKey();
-					String value = (String) entry.getValue();
-					if (key.equals("com.ea.nucleus.version")) {
-						System.out.println();
-					}
-					if (value.contains("$")) {
-						String[] array = value.split("\\$");
-						for (int i = 0; i < array.length; i++) {
-							String str = array[i];
-							if (str.length() > 0) {
-								str = str.substring(str.indexOf("{") + 1,
-										str.indexOf("}"));
-								String tempValue = p.getProperty(str);
-								if (tempValue != null) {
-									if (!tempValue.contains("$")) {
-										value = value.replace("${" + str + "}",
-												tempValue);
-									}
-								}
-							}
-						}
-						p.setProperty(key, value);
-					}
-					System.out.println(key + "  " + p.getProperty(key));
-				}
-				System.out
-						.println("*********************************************");
-				System.out.println(p.getProperty("com.ea.nucleus.version"));
-			}
-			System.out
-			.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			for (Entry<Object, Object> entry : p.entrySet()) {
-				String key = (String) entry.getKey();
-				System.out.println(key + "  " + p.getProperty(key));
-			}
-
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (XmlPullParserException e) {
-			e.printStackTrace();
-		}
-
+		parentProperties = new PomAnalyser(pomPath + File.separator
+				+ "pom.parent").genProperties();
 		recursiveModules(pomPath);
 		for (int i = 0; i < allModules.size(); i++) {
 			if (!allModules.get(i).isBuilt()) {
@@ -85,19 +37,22 @@ public class Main {
 		for (MavenModule mavenModule : orderModules) {
 			System.out.println(mavenModule.toString());
 		}
+		
+		
+	}
+
+	public static Properties getParentProperties() {
+		return parentProperties;
+	}
+
+	public static void setParentProperties(Properties parentProperties) {
+		Main.parentProperties = parentProperties;
 	}
 
 	public static List<String> getModules(String pomDir, MavenModule module) {
 		if (!StringUtil.isNullOrEmpty(pomDir)) {
-			String pomPath = pomDir + File.separator + "pom.xml";
-			PomAnalyser pa = new PomAnalyser(pomPath);
-			String groupId = pa.getGroupId();
-			String artifactId = pa.getArtifactId();
-			// System.out.println(groupId + "  " + artifactId);
-			module.setPath(pomDir);
-			module.setGroupId(groupId);
-			module.setArtifactId(artifactId);
-
+			PomAnalyser pa = new PomAnalyser(pomDir);
+			module.clone(pa.getThisModule());
 			List<String> modules = pa.getModules();
 			if (modules != null && modules.size() > 0) {
 				for (int i = 0; i < modules.size(); i++) {
@@ -124,7 +79,6 @@ public class Main {
 
 	public static void recurseOrder(String pomDir) {
 		if (!StringUtil.isNullOrEmpty(pomDir)) {
-			pomDir = pomDir + File.separator + "pom.xml";
 			PomAnalyser pa = new PomAnalyser(pomDir);
 			List<MavenModule> rootDependencies = pa.getRootDependencies();
 			List<MavenModule> plugins = pa.getPlugins();
@@ -167,20 +121,4 @@ public class Main {
 		System.exit(0);
 	}
 
-	private static boolean canOver(Properties p) {
-		Enumeration e = p.propertyNames();
-		while (e.hasMoreElements()) {
-			String key = (String) e.nextElement();
-			String value = p.getProperty(key);
-			if (key.startsWith("com.ea")) {
-				if (value.contains("$")) {
-					System.out
-							.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-									+ key + "  " + value);
-					return false;
-				}
-			}
-		}
-		return true;
-	}
 }

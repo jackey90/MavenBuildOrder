@@ -99,7 +99,17 @@ public class MavenModule {
 
 	@Override
 	public String toString() {
-		return groupId + " " + artifactId;
+		return groupId + " " + artifactId + " " + version;
+	}
+
+	public void clone(MavenModule module) {
+		this.groupId = module.getGroupId() == null ? null : module.getGroupId();
+		this.artifactId = module.getArtifactId() == null ? null : module
+				.getArtifactId();
+		this.path = module.getPath() == null ? null : module.getPath();
+		this.version = module.getVersion() == null ? null : module.getVersion();
+		this.name = module.getName() == null ? null : module.getName();
+		this.isBuilt = module.isBuilt;
 	}
 
 }

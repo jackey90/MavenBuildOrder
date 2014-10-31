@@ -62,13 +62,6 @@ public class XMLAnalyser {
 		return null;
 	}
 
-	public void warning(String str) {
-		PrintUtil.warning(str);
-	}
-
-	public void error(String str) {
-		PrintUtil.error(str);
-	}
 
 	public boolean isNullOrEmpty(String str) {
 		return StringUtil.isNullOrEmpty(str);

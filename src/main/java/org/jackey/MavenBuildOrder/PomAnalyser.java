@@ -1,10 +1,19 @@
 package org.jackey.MavenBuildOrder;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.Map.Entry;
 
+import org.apache.maven.model.Model;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
@@ -14,31 +23,90 @@ public class PomAnalyser {
 	private Document doc;
 	private Element root;
 	private String path;
-	private String groupId;
-	private String artifactId;
 	private MavenModule thisModule;
 	private List<String> modules;
-	private Map<String, String> properties;
+	private Properties properties;
+	private static Properties parentProperties;
 
 	protected PomAnalyser(String path) {
 		this.path = path;
-		doc = getDocument(path);
+		doc = getDocument(path + File.separator + "pom.xml");
 		init();
 	}
 
 	private void init() {
 		root = doc.getRootElement();
+		if (parentProperties == null) {
+			parentProperties = Main.getParentProperties();
+		}
+		genProperties();
+		genThisModule();
 		genModules();
 	}
-	
-	private void genThisModule(){
+
+	public Properties genProperties() {
+		MavenXpp3Reader reader = new MavenXpp3Reader();
+		try {
+			Model model = reader.read(new FileReader(path + File.separator
+					+ "pom.xml"));
+			properties = model.getProperties();
+			if (properties != null) {
+				while (!canOver(properties)) {
+					for (Entry<Object, Object> entry : properties.entrySet()) {
+						String key = (String) entry.getKey();
+						String value = getPropertyValue(properties, key);
+					}
+				}
+			}
+
+//			System.out
+//					.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+//			for (Entry<Object, Object> entry : properties.entrySet()) {
+//				String key = (String) entry.getKey();
+//				System.out.println(key + "  " + properties.getProperty(key));
+//			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (XmlPullParserException e) {
+			e.printStackTrace();
+		}
+		if (parentProperties != null) {
+			properties.putAll(parentProperties);
+		}
+		return properties;
+	}
+
+	public Properties getProperties() {
+		return properties;
+	}
+
+	public void setProperties(Properties properties) {
+		this.properties = properties;
+	}
+
+	public MavenModule getThisModule() {
+		return thisModule;
+	}
+
+	public void setThisModule(MavenModule thisModule) {
+		this.thisModule = thisModule;
+	}
+
+	private void genThisModule() {
 		thisModule = new MavenModule();
 		thisModule.setGroupId(root.element("groupId").getText());
 		thisModule.setArtifactId(root.element("artifactId").getText());
-	}
-	
-	private void genProperties(){
-		
+		thisModule.setPath(path);
+		String version = root.element("version").getText();
+		if (version.contains("$")) {
+			if (properties != null) {
+				version = getPropertyValue(properties, version);
+			}
+		}
+		thisModule.setVersion(version);
+
 	}
 
 	private void genModules() {
@@ -163,14 +231,6 @@ public class PomAnalyser {
 		return root;
 	}
 
-	public String getGroupId() {
-		return groupId;
-	}
-
-	public String getArtifactId() {
-		return artifactId;
-	}
-
 	public List<String> getModules() {
 		return modules;
 	}
@@ -199,40 +259,47 @@ public class PomAnalyser {
 		return null;
 	}
 
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result
-				+ ((artifactId == null) ? 0 : artifactId.hashCode());
-		result = prime * result + ((groupId == null) ? 0 : groupId.hashCode());
-		return result;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		PomAnalyser other = (PomAnalyser) obj;
-		if (artifactId == null) {
-			if (other.artifactId != null)
-				return false;
-		} else if (!artifactId.equals(other.artifactId))
-			return false;
-		if (groupId == null) {
-			if (other.groupId != null)
-				return false;
-		} else if (!groupId.equals(other.groupId))
-			return false;
-		return true;
-	}
-
 	private boolean notNull(Object obj) {
 		return obj != null;
 	}
 
+	private boolean canOver(Properties p) {
+		Enumeration e = p.propertyNames();
+		while (e.hasMoreElements()) {
+			String key = (String) e.nextElement();
+			String value = p.getProperty(key);
+			if (key.startsWith("com.ea")) {
+				if (value.contains("$")) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	private String getPropertyValue(Properties properties, String key) {
+		String value = properties.getProperty(key);
+		if (!key.contains("$") && (value == null || !value.contains("$"))) {
+			return value;
+		} else {
+			if (key.contains("$")) {
+				value = key;
+			}
+			String[] array = value.split("\\$");
+			for (int i = 0; i < array.length; i++) {
+				String str = array[i];
+				if (str.length() > 0) {
+					str = str.substring(str.indexOf("{") + 1, str.indexOf("}"));
+					String tempValue = getPropertyValue(properties, str);
+					if (tempValue != null) {
+						if (!tempValue.contains("$")) {
+							value = value.replace("${" + str + "}", tempValue);
+						}
+					}
+				}
+			}
+			properties.setProperty(key, value);
+			return value;
+		}
+	}
 }
